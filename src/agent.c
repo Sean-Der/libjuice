@@ -890,8 +890,20 @@ int agent_bookkeeping(juice_agent_t *agent, timestamp_t *next_timestamp) {
 		agent_stun_entry_t *entry = agent->entries + i;
 
 		if (entry->pair && entry->pair->remote->transport != ICE_CANDIDATE_TRANSPORT_UDP && entry->pair->tcp_connected == false) {
+			if (entry->next_transmission > now) {
+				continue;
+			} else if (entry->retransmissions <= 0) {
+				JLOG_DEBUG("ice-tcp failed to connected, marking as failed");
+				entry->pair->state = ICE_CANDIDATE_PAIR_STATE_FAILED;
+				entry->state = AGENT_STUN_ENTRY_STATE_FAILED;
+				entry->next_transmission = 0;
+				continue;
+			}
+
 			conn_tcp_connect(agent, &entry->pair->remote->resolved, agent_tcp_conn_connected);
 			entry->next_transmission = now + LAST_STUN_RETRANSMISSION_TIMEOUT;
+			entry->retransmissions--;
+
 		} else if (entry->state == AGENT_STUN_ENTRY_STATE_PENDING) { // STUN requests transmission or retransmission
 			if (entry->next_transmission > now)
 				continue;

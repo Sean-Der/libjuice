@@ -291,8 +291,9 @@ void conn_poll_process_tcp(juice_agent_t *agent, conn_impl_t *conn_impl, struct 
 	}
 
 	if (pfd->revents & POLLHUP || pfd->revents & POLLERR) {
-		agent_conn_fail(agent);
-		conn_impl->state = CONN_STATE_FINISHED;
+		JLOG_WARN("ice-tcp poll returned error, closing socket");
+		closesocket(conn_impl->tcp_sock);
+		conn_impl->tcp_sock = INVALID_SOCKET;
 		return;
 	}
 
@@ -547,7 +548,7 @@ void conn_poll_tcp_connect_func(juice_agent_t *agent, const addr_record_t *dst, 
 
 	mutex_lock(&conn_impl->registry->mutex);
 	mutex_lock(&conn_impl->send_mutex);
-	if (conn_impl->tcp_sock == INVALID_SOCKET) {
+	if (conn_impl->tcp_sock == INVALID_SOCKET && conn_impl->tcp_sock_connected == NULL) {
 		conn_impl->tcp_sock = tcp_create_socket(dst);
 		memcpy(&conn_impl->tcp_dst, dst, sizeof(conn_impl->tcp_dst));
 		conn_impl->tcp_sock_connected = callback;
